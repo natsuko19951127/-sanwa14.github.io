@@ -364,6 +364,17 @@
   <nav class="mobile-nav" aria-label="モバイルナビゲーション"><a class="active" href="#home" data-view="home"><span>⌂</span>ホーム</a><a href="#work-settings" data-view="work"><span>✓</span>業務</a><a href="#calendar" data-view="calendar"><span>□</span>予定</a><a href="#assistant"><span>✦</span>AI</a></nav>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script>
+  // 起動の見張り：8秒たっても「確認しています…」のままなら、原因とリセットボタンを出す
+  window.__bootErrors=[];
+  addEventListener('error',function(e){var t=e.target;window.__bootErrors.push(t&&t!==window&&(t.src||t.href)?'読み込めないファイル: '+(t.src||t.href):(e.message||'不明なエラー'))},true);
+  setTimeout(function(){
+   var c=document.getElementById('loginChecking');if(!c||c.hidden)return;
+   c.style.flexDirection='column';
+   c.innerHTML='<p style="margin:0;font-weight:700">うまく開けませんでした</p><p style="margin:6px 0 0;font-size:12px;color:#8193a4;word-break:break-all">'+(window.__bootErrors.length?window.__bootErrors.join('<br>').replace(/</g,'&lt;').replace(/&lt;br>/g,'<br>'):'原因不明（時間切れ）')+'</p><button type="button" id="bootReset" style="margin-top:14px;padding:10px 18px;border:0;border-radius:10px;background:#0c9fab;color:#fff;font-weight:800;cursor:pointer">リセットして開き直す</button><p style="margin:8px 0 0;font-size:11px;color:#8193a4">この端末に保存されている日報の下書き・記録が消えます</p>';
+   document.getElementById('bootReset').onclick=function(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf('teamflow.')===0)localStorage.removeItem(k)});sessionStorage.clear()}catch(e){}location.replace(location.pathname+'?r='+Date.now())};
+  },8000);
+  </script>
+  <script>
 const TODAY_ISO=nippoDkey(new Date());
 const defaultTasks=[];
 /* ===== 日報（店頭日報） ===== */
@@ -744,7 +755,9 @@ function renderDayEvents(){
  const items=tasks.filter(t=>t.date===selectedDate).sort((a,b)=>a.time.localeCompare(b.time));
  document.querySelector('#dayEventList').innerHTML=items.length?items.map(t=>{const i=tasks.indexOf(t);return `<div class="day-event"><time>${esc(t.time)}</time><div class="day-event-copy"><strong>${esc(t.name)}</strong>${t.note?`<small>${esc(t.note)}</small>`:''}</div><button data-schedule-delete="${i}" aria-label="${esc(t.name)}を削除">削除</button></div>`}).join(''):'<p class="empty-settings">この日のタスクはまだありません</p>'
 }
-renderTopbarDate();renderTasks();renderHomeModules();nippoRender();nippoInitBackend();resolveViewerIdentity();
+// 起動：どれかが失敗しても、ログイン画面までは必ず進める
+[renderTopbarDate,renderTasks,renderHomeModules,nippoRender,nippoInitBackend].forEach(f=>{try{f()}catch(e){(window.__bootErrors=window.__bootErrors||[]).push((f.name||'起動')+': '+(e&&e.message||e))}});
+resolveViewerIdentity();
 list.addEventListener('change',e=>{if(!e.target.matches('input'))return;const i=Number(e.target.dataset.index);tasks[i].done=e.target.checked;saveTasks();renderTasks();toast(tasks[i].done?'タスクを完了しました':'タスクを未完了に戻しました')});
 settingsList.addEventListener('click',e=>{const b=e.target.closest('[data-delete]');if(!b)return;tasks.splice(Number(b.dataset.delete),1);saveTasks();renderTasks();toast('ホームの今日の業務から削除しました')});
 function showView(view){document.querySelector('#homeView').classList.toggle('active',view==='home');document.querySelector('#workView').classList.toggle('active',view==='work');document.querySelector('#calendarView').classList.toggle('active',view==='calendar');document.querySelector('#dashboardView').classList.toggle('active',view==='dashboard');document.querySelector('#reportView').classList.toggle('active',view==='report');document.querySelector('#settingsView').classList.toggle('active',view==='settings');document.querySelector('#helpView').classList.toggle('active',view==='help');document.querySelector('#analysisView').classList.toggle('active',view==='analysis');document.querySelector('#moduleView').classList.remove('active');document.querySelectorAll('.nav-item,.mobile-nav a').forEach(x=>x.classList.toggle('active',x.dataset.view===view));const hashes={home:'home',work:'work-settings',calendar:'calendar',dashboard:'dashboard',report:'report',settings:'settings',help:'help',analysis:'analysis'};location.hash=hashes[view]||'home';if(view==='calendar')renderCalendar();if(view==='report')nippoRender();if(view==='dashboard')renderDashboard();if(view==='settings')renderSettings();if(view==='analysis')renderAnalysis();window.scrollTo({top:0,behavior:'smooth'})}
