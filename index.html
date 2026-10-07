@@ -1495,11 +1495,20 @@ document.querySelector('#assistantForm').addEventListener('submit',async e=>{
  assistantBusy=true;
  replyEl.hidden=false;replyEl.classList.add('loading');replyEl.textContent='考えています…';
  try{
-  const response=await fetch('http://localhost:3000/api/teamflow/assistant',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:text})});
-  const res=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(res.error||'AIへの接続に失敗しました');
+  // Claude上で公開しているときは Claude の AI を使い、それ以外（このMacで開いたとき）は従来のローカルAPIを使う
+  const sample=window.claude&&window.claude.use?await withTimeout(window.claude.use('sample'),6000).catch(()=>null):null;
+  let answer;
+  if(sample){
+   const r=await withTimeout(sample(text),30000);
+   answer=r&&r.text;
+  }else{
+   const response=await fetch('http://localhost:3000/api/teamflow/assistant',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:text})});
+   const res=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(res.error||'AIへの接続に失敗しました');
+   answer=res.text;
+  }
   replyEl.classList.remove('loading');
-  replyEl.textContent=res.text||'回答を取得できませんでした。';
+  replyEl.textContent=answer||'回答を取得できませんでした。';
 }catch(err){
   replyEl.classList.remove('loading');
   replyEl.textContent=err.message||'AIアシストでエラーが発生しました。もう一度お試しください。';
